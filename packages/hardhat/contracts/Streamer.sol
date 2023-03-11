@@ -22,11 +22,17 @@ contract Streamer is Ownable {
         - updates the balances mapping with the eth received in the function call
         - emits an Opened event
         */
+         require(balances[msg.sender] == 0, "channel is already open");
+         balances[msg.sender] = msg.value;
+         emit Opened(msg.sender, msg.value);
+
     }
 
     function timeLeft(address channel) public view returns (uint256) {
         require(canCloseAt[channel] != 0, "channel is not closing");
-        return canCloseAt[channel] - block.timestamp;
+        if (canCloseAt[channel] >= block.timestamp)
+            return canCloseAt[channel] - block.timestamp;
+        else return 0;
     }
 
     function withdrawEarnings(Voucher calldata voucher) public {
@@ -59,7 +65,25 @@ contract Streamer is Ownable {
             - adjust the channel balance, and pay the contract owner. (Get the owner address withthe `owner()` function)
             - emit the Withdrawn event
         */
+      
+        address signer = ecrecover(
+            prefixedHashed,
+            voucher.sig.v,
+            voucher.sig.r,
+            voucher.sig.s
+        );
+        require(
+            balances[signer] > voucher.updatedBalance,
+            "Insufficient funds"
+        );
+
+        uint bal = balances[signer] - voucher.updatedBalance;
+        balances[signer] = voucher.updatedBalance;
+        (bool success, ) = owner().call{value: bal}("");
+        require(success, "Transaction Failed");
+        emit Withdrawn(signer, bal);
     }
+    
 
     /*
     Checkpoint 6a: Challenge the channel
@@ -70,6 +94,13 @@ contract Streamer is Ownable {
     - emits a Challenged event
     */
 
+    function challengeChannel() public {
+        require(balances[msg.sender] != 0, "channel is not open");
+        canCloseAt[msg.sender] = block.timestamp + 30 seconds;
+        emit Challenged(msg.sender);
+    }
+    
+
     /*
     Checkpoint 6b: Close the channel
 
@@ -79,6 +110,15 @@ contract Streamer is Ownable {
     - sends the channel's remaining funds to msg.sender, and sets the balance to 0
     - emits the Closed event
     */
+    function defundChannel() public {
+       require(balances[msg.sender] != 0, "No open channel");
+        require(timeLeft(msg.sender) == 0, "no closing channel");
+        uint256 bal = balances[msg.sender];
+        balances[msg.sender] = 0;
+        (bool success, ) = msg.sender.call{value: bal}("");
+        require(success, "Transaction Failed");
+        emit Closed(msg.sender);
+    }
 
     struct Voucher {
         uint256 updatedBalance;

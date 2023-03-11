@@ -52,7 +52,7 @@ const { ethers } = require("ethers");
 */
 
 /// 📡 What chain are your contracts deployed to?
-const targetNetwork = NETWORKS.localhost; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
+const targetNetwork = NETWORKS.goerli; // <------- select your target frontend network (localhost, rinkeby, xdai, mainnet)
 
 // 😬 Sorry for all the console logging
 const DEBUG = true;
@@ -464,17 +464,28 @@ function App(props) {
     function processVoucher(voucher) {
       // recreate a BigNumber object from the message. v.data.updatedBalance is
       // a string representation of the BigNumber for transit over the network
+       
+      
       const updatedBalance = ethers.BigNumber.from(voucher.data.updatedBalance);
 
-      /*
-       *  Checkpoint 4:
-       *
-       *  currently, this function recieves and stores vouchers uncritically.
-       *
-       *  recreate the packed, hashed, and arrayified message from reimburseService (above),
-       *  and then use ethers.utils.verifyMessage() to confirm that voucher signer was
-       *  `clientAddress`. (If it wasn't, log some error message and return).
-      */
+      
+      
+      //  currently, this function recieves and stores vouchers uncritically.
+      //  
+      //   recreate the packed, hashed, and arrayified message from reimburseService (above),
+      //   and then use ethers.utils.verifyMessage() to confirm that voucher signer was
+      //   `clientAddress`. (If it wasn't, log some error message and return).
+
+      //   If the voucher is valid, then update the voucher store and update the UI.
+      const packed = ethers.utils.solidityPack(["uint256"], [updatedBalance]);
+      const hashed = ethers.utils.keccak256(packed);
+      const arrayified = ethers.utils.arrayify(hashed);
+      const signer = ethers.utils.verifyMessage(arrayified, voucher.data.signature);
+
+      if (signer !== clientAddress) {
+        console.log("invalid voucher");
+        return;
+      }
 
       const existingVoucher = vouchers()[clientAddress];
 
@@ -800,7 +811,7 @@ function App(props) {
                         </div>
                       </Card>
 
-                      {/* Checkpoint 5:
+                      { 
                       <Button
                         style={{ margin: 5 }}
                         type="primary"
@@ -811,7 +822,7 @@ function App(props) {
                         }}
                       >
                         Cash out latest voucher
-                      </Button> */}
+                      </Button> }
                     </List.Item>
                   )}
                 ></List>
@@ -853,7 +864,7 @@ function App(props) {
                         </Card>
                       </Col>
 
-                      {/* Checkpoint 6: challenge & closure
+                      { 
 
                       <Col span={5}>
                         <Button
@@ -887,7 +898,7 @@ function App(props) {
                         >
                           Close and withdraw funds
                         </Button>
-                      </Col> */}
+                      </Col> }
                     </Row>
                   </div>
                 ) : hasClosedChannel() ? (
